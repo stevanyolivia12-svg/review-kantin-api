@@ -1,5 +1,7 @@
 import { ReviewRepository, type CreateReviewInput } from '../repositories/reviewRepository.ts';
 import type { ReviewResponseDto } from '../dtos/ReviewResponeDto.ts';
+import { AppError } from '../errors/appError.ts';
+import type { AuthenticatedUser } from '../middleware/auth.ts';
 
 export class ReviewService {
   private reviewRepository: ReviewRepository;
@@ -26,22 +28,25 @@ export class ReviewService {
     return rows.map((row) => this.toDto(row));
   }
 
-  async createReview(input: CreateReviewInput): Promise<ReviewResponseDto> {
-    if (!input.stallId || !input.userId || input.rating === undefined) {
+  async createReview(input: Omit<CreateReviewInput, 'userId'>, actor: AuthenticatedUser): Promise<ReviewResponseDto> {
+    if (!input.stallId || input.rating === undefined) {
       throw new Error('REVIEW_INVALID_INPUT');
     }
     if (input.rating < 1 || input.rating > 5) {
       throw new Error('REVIEW_INVALID_RATING');
     }
-    const row = await this.reviewRepository.create(input);
+    const row = await this.reviewRepository.create({ ...input, userId: actor.id });
     if (!row) throw new Error('REVIEW_NOT_FOUND');
     await this.reviewRepository.recalcStallRating(input.stallId);
     return this.toDto(row);
   }
 
-  async deleteReview(id: number): Promise<ReviewResponseDto> {
+  async deleteReview(id: number, actor: AuthenticatedUser): Promise<ReviewResponseDto> {
     const existing = await this.reviewRepository.findById(id);
     if (!existing) throw new Error('REVIEW_NOT_FOUND');
+    if (actor.role !== 'admin' && existing.userId !== actor.id) {
+      throw new AppError(403, 'FORBIDDEN', 'Review hanya dapat dihapus oleh pembuatnya.');
+    }
     const row = await this.reviewRepository.remove(id);
     if (!row) throw new Error('REVIEW_NOT_FOUND');
     await this.reviewRepository.recalcStallRating(existing.stallId);

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { StallService } from '../services/stallService.ts';
+import { respondWithError } from '../middleware/errorHandler.ts';
 
 export class StallController {
   private stallService: StallService;
@@ -9,22 +10,17 @@ export class StallController {
   }
 
   private handleError(res: Response, error: unknown): Response {
-    if (error instanceof Error && error.message === 'STALL_NOT_FOUND') {
-      return res.status(404).json({ status: 'fail', message: 'Data warung tidak ditemukan' });
-    }
-    return res.status(500).json({
-      status: 'error',
-      message: 'Terjadi kesalahan pada server',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return respondWithError(res, error);
   }
 
   getStalls = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const page = Number(req.query.page) || 1;
-      const limit = Number(req.query.limit) || 10;
-      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-      const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+      const { page, limit, search, category } = res.locals.validatedQuery as {
+        page: number;
+        limit: number;
+        search?: string;
+        category?: string;
+      };
 
       const { data, total } = await this.stallService.getAllStalls({
         search,
@@ -59,7 +55,7 @@ export class StallController {
 
   createStall = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const stall = await this.stallService.createStall(req.body);
+      const stall = await this.stallService.createStall(req.body, req.auth!);
       return res.status(201).json({ status: 'success', data: stall });
     } catch (error) {
       return this.handleError(res, error);
@@ -68,7 +64,7 @@ export class StallController {
 
   updateStall = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const stall = await this.stallService.updateStall(Number(req.params.id), req.body);
+      const stall = await this.stallService.updateStall(Number(req.params.id), req.body, req.auth!);
       return res.status(200).json({ status: 'success', data: stall });
     } catch (error) {
       return this.handleError(res, error);
@@ -77,7 +73,7 @@ export class StallController {
 
   deleteStall = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const stall = await this.stallService.deleteStall(Number(req.params.id));
+      const stall = await this.stallService.deleteStall(Number(req.params.id), req.auth!);
       return res.status(200).json({ status: 'success', data: stall });
     } catch (error) {
       return this.handleError(res, error);

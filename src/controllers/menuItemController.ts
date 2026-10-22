@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { MenuItemService } from '../services/menuItemService.ts';
+import { respondWithError } from '../middleware/errorHandler.ts';
 
 export class MenuItemController {
   private menuItemService: MenuItemService;
@@ -9,17 +10,7 @@ export class MenuItemController {
   }
 
   private handleError(res: Response, error: unknown): Response {
-    if (error instanceof Error && error.message === 'MENU_ITEM_NOT_FOUND') {
-      return res.status(404).json({ status: 'fail', message: 'Menu tidak ditemukan' });
-    }
-    if (error instanceof Error && error.message === 'MENU_ITEM_INVALID_INPUT') {
-      return res.status(400).json({ status: 'fail', message: 'Data menu tidak valid' });
-    }
-    return res.status(500).json({
-      status: 'error',
-      message: 'Terjadi kesalahan pada server',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return respondWithError(res, error);
   }
 
   getMenuItems = async (req: Request, res: Response): Promise<Response> => {
@@ -42,7 +33,7 @@ export class MenuItemController {
 
   createMenuItem = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const data = await this.menuItemService.createMenuItem(req.body);
+      const data = await this.menuItemService.createMenuItem(req.body, req.auth!);
       return res.status(201).json({ status: 'success', data });
     } catch (error) {
       return this.handleError(res, error);
@@ -51,7 +42,7 @@ export class MenuItemController {
 
   updateMenuItem = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const data = await this.menuItemService.updateMenuItem(Number(req.params.id), req.body);
+      const data = await this.menuItemService.updateMenuItem(Number(req.params.id), req.body, req.auth!);
       return res.status(200).json({ status: 'success', data });
     } catch (error) {
       return this.handleError(res, error);
@@ -60,7 +51,7 @@ export class MenuItemController {
 
   deleteMenuItem = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const data = await this.menuItemService.deleteMenuItem(Number(req.params.id));
+      const data = await this.menuItemService.deleteMenuItem(Number(req.params.id), req.auth!);
       return res.status(200).json({ status: 'success', data });
     } catch (error) {
       return this.handleError(res, error);

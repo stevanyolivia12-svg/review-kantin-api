@@ -3,12 +3,19 @@ import swaggerAutogen from 'swagger-autogen';
 const doc = {
   info: { title: 'Review Kantin API', version: '1.0.0' },
   servers: [{ url: 'http://localhost:3000' }],
+  securityDefinitions: {
+    bearerAuth: {
+      type: 'apiKey',
+      name: 'Authorization',
+      in: 'header',
+      description: 'Masukkan token dengan format: Bearer <token>',
+    },
+  },
   definitions: {
     StallInput: {
       type: 'object',
-      required: ['ownerId', 'name'],
+      required: ['name'],
       properties: {
-        ownerId: { type: 'integer', example: 2 },
         name: { type: 'string', example: 'Warung Baru' },
         category: { type: 'string', example: 'Nasi' },
         location: { type: 'string', example: 'Kantin FK' },

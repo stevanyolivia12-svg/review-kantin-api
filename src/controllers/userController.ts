@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { UserService } from '../services/userService.ts';
+import { respondWithError } from '../middleware/errorHandler.ts';
 
 export class UserController {
   private userService: UserService;
@@ -9,17 +10,7 @@ export class UserController {
   }
 
   private handleError(res: Response, error: unknown): Response {
-    if (error instanceof Error && error.message === 'USER_EMAIL_TAKEN') {
-      return res.status(409).json({ status: 'fail', message: 'Email sudah terdaftar' });
-    }
-    if (error instanceof Error && error.message.startsWith('USER_INVALID')) {
-      return res.status(400).json({ status: 'fail', message: 'Data user tidak valid' });
-    }
-    return res.status(500).json({
-      status: 'error',
-      message: 'Terjadi kesalahan pada server',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return respondWithError(res, error);
   }
 
   getUsers = async (req: Request, res: Response): Promise<Response> => {

@@ -17,7 +17,30 @@ function hashPassword(plain: string): string {
   return `${salt}:${hash}`;
 }
 
+export function verifyPassword(plain: string, storedHash: string): boolean {
+  const [salt, hash] = storedHash.split(':');
+  if (!salt || !hash || !/^[0-9a-f]{32}$/.test(salt) || !/^[0-9a-f]{128}$/.test(hash)) return false;
+  const expected = Buffer.from(hash, 'hex');
+  const actual = crypto.scryptSync(plain, salt, expected.length);
+  return expected.length > 0 && crypto.timingSafeEqual(actual, expected);
+}
+
 export class UserRepository {
+  async findProfileById(id: number) {
+    const db = await getDb();
+    const rows = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, id));
+    return rows[0];
+  }
+
   async findAll() {
     const db = await getDb();
     return db

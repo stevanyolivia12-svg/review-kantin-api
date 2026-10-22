@@ -5,6 +5,8 @@ import {
 } from '../repositories/stallRepository.ts';
 import { MenuItemRepository } from '../repositories/menuItemRepository.ts';
 import type { MenuItemDto, StallResponseDto } from '../dtos/stallDto.ts';
+import { AppError } from '../errors/appError.ts';
+import type { AuthenticatedUser } from '../middleware/auth.ts';
 
 type StallRow = NonNullable<Awaited<ReturnType<StallRepository['findById']>>>;
 
@@ -53,21 +55,38 @@ export class StallService {
     return this.menuItemRepository.findByStallId(id);
   }
 
-  async createStall(input: CreateStallInput): Promise<StallResponseDto> {
-    const row = await this.stallRepository.create(input);
+  async createStall(input: Omit<CreateStallInput, 'ownerId'>, actor: AuthenticatedUser): Promise<StallResponseDto> {
+    const row = await this.stallRepository.create({ ...input, ownerId: actor.id });
     if (!row) throw new Error('STALL_NOT_FOUND');
     return this.toDto(row);
   }
 
-  async updateStall(id: number, input: Partial<CreateStallInput>): Promise<StallResponseDto> {
+  async updateStall(
+    id: number,
+    input: Partial<Omit<CreateStallInput, 'ownerId'>>,
+    actor: AuthenticatedUser,
+  ): Promise<StallResponseDto> {
+    await this.assertCanManage(id, actor);
     const row = await this.stallRepository.update(id, input);
     if (!row) throw new Error('STALL_NOT_FOUND');
     return this.toDto(row);
   }
 
-  async deleteStall(id: number): Promise<StallResponseDto> {
+  async deleteStall(id: number, actor: AuthenticatedUser): Promise<StallResponseDto> {
+    await this.assertCanManage(id, actor);
     const row = await this.stallRepository.remove(id);
     if (!row) throw new Error('STALL_NOT_FOUND');
     return this.toDto(row);
+  }
+
+  private async assertCanManage(id: number, actor: AuthenticatedUser): Promise<void> {
+    const stall = await this.stallRepository.findById(id);
+    if (!stall) throw new Error('STALL_NOT_FOUND');
+    if (
+      actor.role !== 'admin' &&
+      (actor.role !== 'owner' || stall.ownerId !== actor.id)
+    ) {
+      throw new AppError(403, 'FORBIDDEN', 'Warung hanya dapat dikelola oleh pemiliknya.');
+    }
   }
 }

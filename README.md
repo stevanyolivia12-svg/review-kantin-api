@@ -67,6 +67,7 @@ DB_PASSWORD=Praktikum2026!
 DB_NAME=review_kantin
 DB_ENCRYPT=false
 DB_TRUST_SERVER_CERTIFICATE=true
+JWT_SECRET=replace-this-with-a-random-secret-at-least-32-characters
 ```
 
 > Nilai yang mengandung `#` wajib dibungkus tanda kutip (dotenv menganggap `#` komentar).
@@ -252,6 +253,20 @@ Contoh:
 curl.exe "http://localhost:3000/api/v1/stalls?category=Minuman&limit=2&page=1"
 ```
 
+Semua respons gagal memakai format yang sama. Error validasi mengisi `errors` dengan
+detail field, sedangkan error autentikasi/otorisasi dan error lainnya mengembalikan
+`errors: []`.
+
+```json
+{
+  "status": "fail",
+  "message": "Validasi gagal",
+  "errors": [
+    { "field": "email", "message": "format email tidak valid" }
+  ]
+}
+```
+
 ---
 
 ## Dokumentasi API (Swagger UI)
@@ -338,3 +353,31 @@ hands-on-2-orm-drizzle/
    ├─ routes/stallRouter.ts
    └─ index.ts
 ```
+
+  ## Autentikasi dan otorisasi
+
+  Atur `JWT_SECRET` minimal 32 karakter pada `.env`. Token berlaku selama satu jam.
+
+  1. `POST /api/v1/auth/register` membuat akun customer dan langsung memberikan token. Role dari body tidak diterima saat registrasi.
+  2. `POST /api/v1/auth/login` menerima `{ "email": "...", "password": "..." }` dan mengembalikan `accessToken`.
+  3. Untuk endpoint terlindungi, kirim header `Authorization: Bearer <accessToken>`.
+
+  | Role | Akses tulis |
+  | --- | --- |
+  | `admin` | Kelola user, flag, audit log, warung, dan menu; dapat menghapus review/like |
+  | `owner` | Buat dan kelola warung/menu miliknya sendiri |
+  | `customer` | Buat review/like dan menghapus review/like miliknya sendiri |
+
+  Pembacaan katalog tetap publik. `ownerId` dan `userId` ditentukan server dari identitas JWT, bukan dari request body. User owner/admin dibuat oleh admin lewat `POST /api/v1/users`.
+
+  Tanpa token, token invalid, atau token kedaluwarsa menghasilkan `401`. Role yang tidak diizinkan atau akses ke resource milik user lain menghasilkan `403`. Semua error menggunakan format yang sama:
+
+  ```json
+  {
+    "status": "fail",
+    "message": "Validasi gagal",
+    "errors": [{ "field": "name", "message": "name minimal 3 karakter" }]
+  }
+  ```
+
+  Swagger UI di `/docs` mendukung tombol **Authorize** untuk memasukkan Bearer token.
